@@ -13,11 +13,11 @@ https://raw.githubusercontent.com/k2on/BasedCarAPI/main/data/years.json
 ## Makes
 
 ```
-https://raw.githubusercontent.com/k2on/BasedCarAPI/main/data/2012/makes.json
+https://raw.githubusercontent.com/k2on/BasedCarAPI/main/data/years/2012/makes.json
 ```
 
 ## Models
 
 ```
-https://raw.githubusercontent.com/k2on/BasedCarAPI/main/data/2012/Infiniti/models.json
+https://raw.githubusercontent.com/k2on/BasedCarAPI/main/data/years/2012/Infiniti/models.json
 ```
