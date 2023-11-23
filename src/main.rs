@@ -1,72 +1,78 @@
-use image::{ImageBuffer, Rgba, RgbaImage, Luma, open};
-use std::collections::VecDeque;
-use std::path::Path;
+use std::{path::Path, fs::{File, create_dir_all}, io::{BufReader, BufWriter}};
 
-fn main() {
-    // Load the image
-    let img = open(Path::new("input.jpeg")).expect("Failed to open image").to_rgba8();
-    let (width, height) = img.dimensions();
+use serde::{Serialize, Deserialize};
 
-    // Initialize the mask to be the same size as the image, filled with black (meaning no transparency)
-    let mut mask = ImageBuffer::from_pixel(width, height, Luma([0]));
+const BASE_URL: &str = "https://www.evoxstock.com/ajaxpickyourvehicle.asp";
 
-    // Define a tolerance for color matching; pixels within this tolerance to white will be considered as background
-    let tolerance = 10;
 
-    // Perform flood fill from the corners to create a mask.
-    // Corners are top-left, top-right, bottom-left, bottom-right.
-    // We assume the corners are part of the background.
-    flood_fill(&img, &mut mask, 0, 0, tolerance); // top-left
-    flood_fill(&img, &mut mask, width - 1, 0, tolerance); // top-right
-    flood_fill(&img, &mut mask, 0, height - 1, tolerance); // bottom-left
-    flood_fill(&img, &mut mask, width - 1, height - 1, tolerance); // bottom-right
-
-    // Save the mask to check what has been filled
-    // mask.save(Path::new("/mnt/data/mask.png")).expect("Failed to save mask");
-
-    // Apply the mask to the image.
-    let mut output_img = RgbaImage::new(width, height);
-    for (x, y, pixel) in img.enumerate_pixels() {
-        let mask_pixel = mask.get_pixel(x, y)[0];
-        let alpha = if mask_pixel == 0 { 255 } else { 0 }; // If mask pixel is black, keep the image pixel opaque.
-        output_img.put_pixel(x, y, Rgba([pixel[0], pixel[1], pixel[2], alpha]));
-    }
-
-    // Save the modified image with the background removed
-    output_img.save(Path::new("output.png")).expect("Failed to save image with transparency");
+#[derive(Debug, Serialize, Deserialize)]
+struct Years {
+    years: Vec<String>,
 }
 
-// Tolerance-based flood fill algorithm
-fn flood_fill(image: &RgbaImage, mask: &mut ImageBuffer<Luma<u8>, Vec<u8>>, start_x: u32, start_y: u32, tolerance: u8) {
-    let mut queue = VecDeque::new();
-    queue.push_back((start_x, start_y));
+#[tokio::main]
+async fn main() {
+    let years = get_years(false).await;
+    for year in years {
+        println!("Year: {year}");
+        let makes = get_makes(&year, false).await;
 
-    while let Some((x, y)) = queue.pop_front() {
-        // Check if the pixel is already filled
-        if mask.get_pixel(x, y)[0] != 0 {
-            continue;
+        for make in makes {
+            println!("Make: {make}");
+            let models = get_models(&year, &make, false).await;
+            for model in models {
+                println!("Model: {model}");
+            }
+
         }
 
-        let image_pixel = image.get_pixel(x, y);
-
-        // Check if the pixel color is within the tolerance range of white
-        if is_within_tolerance(image_pixel, tolerance) {
-            mask.put_pixel(x, y, Luma([255]));
-
-            // Add neighboring pixels to the queue
-            if x > 0 { queue.push_back((x - 1, y)); }
-            if y > 0 { queue.push_back((x, y - 1)); }
-            if x < image.width() - 1 { queue.push_back((x + 1, y)); }
-            if y < image.height() - 1 { queue.push_back((x, y + 1)); }
-        }
+        break;
     }
 }
 
-// Helper function to determine if a pixel is within the tolerance range of white
-fn is_within_tolerance(pixel: &Rgba<u8>, tolerance: u8) -> bool {
-    let Rgba([r, g, b, _]) = *pixel;
-    let white = 255;
-    
-    r > white - tolerance && g > white - tolerance && b > white - tolerance
+
+async fn get_years(force: bool) -> Vec<String> {
+    get_data("data/years.json", "", "CarYears,", force).await
 }
+
+async fn get_makes(year: &str, force: bool) -> Vec<String> {
+    get_data(&format!("data/years/{year}/makes.json"), &format!("?caryear={year}"), "CarMakes,", force).await
+}
+
+async fn get_models(year: &str, make: &str, force: bool) -> Vec<String> {
+    get_data(&format!("data/years/{year}/{make}/models.json"), &format!("?caryear={year}&carmake={make}"), "CarModels,", force).await
+}
+
+async fn get_data(path: &str, args: &str, first: &str, force: bool) -> Vec<String> {
+    let path = Path::new(path);
+    if path.exists() && !force {
+        let file = File::open(path).unwrap();
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader).unwrap()
+    } else {
+        let resp = reqwest::get(BASE_URL.to_owned() + args).await.unwrap();
+        let html = resp.text().await.unwrap();
+        println!("html {html}");
+        let res_str = html.split_once(first).unwrap().1;
+        let res = res_str.split(",").map(|s| s.to_owned()).collect();
+
+        if let Some(parent) = path.parent() {
+            create_dir_all(parent).unwrap();
+        }
+
+        let file = File::create(path).unwrap();
+        let writer = BufWriter::new(file);
+        serde_json::to_writer(writer, &res).unwrap();
+
+        res
+    }
+}
+
+// async fn get_models(year: &str, make: &str) -> Vec<String> {
+//     let url = BASE_URL.to_owned() + "?caryear=" + year + "&carmake=" + make;
+//     let resp = reqwest::get(url).await.unwrap();
+//     let html = resp.text().await.unwrap();
+//     let models_str = html.split_once("CarModels,").unwrap().1;
+//     models_str.split(",").map(|s| s.to_owned()).collect()
+// }
 
