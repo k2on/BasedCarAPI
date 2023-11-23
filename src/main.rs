@@ -20,13 +20,12 @@ async fn main() {
         for make in makes {
             println!("Make: {make}");
             let models = get_models(&year, &make, false).await;
-            for model in models {
-                println!("Model: {model}");
-            }
+            println!("Models: {models:?}");
+            // for model in models {
+            //     println!("Model: {model}");
+            // }
 
         }
-
-        break;
     }
 }
 
@@ -52,7 +51,6 @@ async fn get_data(path: &str, args: &str, first: &str, force: bool) -> Vec<Strin
     } else {
         let resp = reqwest::get(BASE_URL.to_owned() + args).await.unwrap();
         let html = resp.text().await.unwrap();
-        println!("html {html}");
         let res_str = html.split_once(first).unwrap().1;
         let res = res_str.split(",").map(|s| s.to_owned()).collect();
 
