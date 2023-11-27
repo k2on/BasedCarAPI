@@ -7,7 +7,7 @@ use tokio::io::AsyncWriteExt;
 use futures::stream::StreamExt;
 
 
-const BASE_URL: &str = "https://www.evoxstock.com/ajaxpickyourvehicle.asp";
+const BASE_URL: &str = "";
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -81,7 +81,7 @@ impl Color {
 
 async fn get_color(year: &str, make: &str, model: &str, color: &Color) -> Option<String> {
     let color_code = color.code();
-    let url = format!("https://www.evoxstock.com/results.asp?search=1&itemtype=1&color={color_code}&shot=0&library=0&txtkeys1={year} {make} {model}");
+    let url = format!("{year} {make} {model}");
     let resp = reqwest::get(url).await.unwrap();
     let html = resp.text().await.unwrap();
     let frag = Html::parse_fragment(&html);
