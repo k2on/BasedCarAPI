@@ -93,7 +93,7 @@ async fn get_color(year: &str, make: &str, model: &str, color: &Color) -> Option
 
         let src = i.next().unwrap().value().attr("src");
         if let Some(src) = src {
-            Some(format!("https://www.evoxstock.com{src}"))
+            Some(format!("{src}"))
         } else {
             None
         }
